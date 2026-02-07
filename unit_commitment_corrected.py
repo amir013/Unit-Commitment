@@ -376,10 +376,31 @@ def main():
     # Objective function (FIXED: removed incorrect (model) call)
     model.obj = pyo.Objective(rule=objective_function, sense=pyo.minimize)
     
-    # Solve
+    # Solve - try available solvers
     print("Solving optimization problem...")
+    import os
+    os.environ['NEOS_EMAIL'] = 'user@example.com'
+
+    solved = False
+    # Try local Gurobi first
     optim = pyo.SolverFactory('gurobi')
-    result = optim.solve(model)
+    if optim.available():
+        print("Using Gurobi (local)...")
+        result = optim.solve(model)
+        solved = True
+
+    if not solved:
+        # Try NEOS with Bonmin (handles MINLP)
+        try:
+            print("Using NEOS + Bonmin (remote MINLP solver)...")
+            solver_mgr = pyo.SolverManagerFactory('neos')
+            result = solver_mgr.solve(model, opt='bonmin', tee=True)
+            solved = True
+        except Exception as e:
+            print(f"NEOS failed: {e}")
+
+    if not solved:
+        raise RuntimeError("No solver available. Install Gurobi or ensure internet for NEOS.")
     
     # Display results
     print("\n" + "="*50)
